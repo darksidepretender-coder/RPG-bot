@@ -179,5 +179,9 @@ async def sync_queue(request: Request):
 
     except Exception as e:
         return {"error": str(e)}
-
+@app.get("/test-jamendo")
+def test_jamendo():
+    result = search_jamendo("chill")
+    return {"result": result}
+    
     return {"status": "ok"}
