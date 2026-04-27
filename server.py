@@ -148,4 +148,42 @@ async def webhook(request: Request):
             if video:
                 add_to_queue(video["video_id"], video["title"], user, tokens)
 
+    @app.post("/sync")
+async def sync_queue(request: Request):
+    data = await request.json()
+    queue_str = data.get("queue", "[]")
+    
+    try:
+        import json
+        queue = json.loads(queue_str)
+        
+        conn = get_db()
+        cur = conn.cursor()
+        
+        for item in queue:
+            query = item.get("query", "")
+            user = item.get("user", "unknown")
+            tokens = item.get("tokens", 0)
+            
+            if query:
+                video = search_youtube(query)
+                if video:
+                    # Проверяем нет ли уже в очереди
+                    cur.execute("SELECT id FROM queue WHERE title = %s AND played = FALSE", (video["title"],))
+                    exists = cur.fetchone()
+                    if not exists:
+                        cur.execute(
+                            "INSERT INTO queue (video_id, title, requested_by, tokens) VALUES (%s, %s, %s, %s)",
+                            (video["video_id"], video["title"], user, tokens)
+                        )
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+    except Exception as e:
+        return {"error": str(e)}
+    
+    return {"status": "ok"}
+
     return {"status": "ok"}
