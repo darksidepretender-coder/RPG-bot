@@ -199,3 +199,10 @@ async def sync_queue(request: Request):
         return {"error": str(e)}
 
     return {"status": "ok"}
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+@app.get("/overlay")
+def serve_overlay():
+    return FileResponse("music_overlay.html")
