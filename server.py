@@ -70,23 +70,24 @@ def search_youtube(query: str):
         }
     return None
 
-# ── Эндпоинты ──
-@app.post("/request")
-def request_song(req: SongRequest):
-    video = search_youtube(req.query)
-    if not video:
-        return {"error": "Трек не найден"}
-
+def add_to_queue(video_id, title, requested_by, tokens):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
         "INSERT INTO queue (video_id, title, requested_by, tokens) VALUES (%s, %s, %s, %s)",
-        (video["video_id"], video["title"], req.requested_by, req.tokens)
+        (video_id, title, requested_by, tokens)
     )
     conn.commit()
     cur.close()
     conn.close()
 
+# ── Эндпоинты ──
+@app.post("/request")
+def request_song(req: SongRequest):
+    video = search_youtube(req.query)
+    if not video:
+        return {"error": "Track not found"}
+    add_to_queue(video["video_id"], video["title"], req.requested_by, req.tokens)
     return {"success": True, "title": video["title"], "video_id": video["video_id"]}
 
 @app.get("/queue")
@@ -97,7 +98,6 @@ def get_queue():
     rows = cur.fetchall()
     cur.close()
     conn.close()
-
     return [{"id": r[0], "video_id": r[1], "title": r[2], "requested_by": r[3], "tokens": r[4]} for r in rows]
 
 @app.post("/played/{song_id}")
@@ -118,53 +118,34 @@ def clear_queue():
     conn.commit()
     cur.close()
     conn.close()
-    @app.post("/webhook")
+    return {"success": True}
+
+@app.post("/webhook")
 async def webhook(request: Request):
     data = await request.json()
-    
-    # Chaturbate присылает тип события
     event_type = data.get("type")
-    
-    # Обработка сообщения в чате
+
     if event_type == "chatMessage":
         message = data.get("object", {})
         text = message.get("message", "").strip()
         user = message.get("user", {}).get("username", "unknown")
-        
+
         if text.lower().startswith("!song "):
             query = text[6:].strip()
             video = search_youtube(query)
             if video:
-                conn = get_db()
-                cur = conn.cursor()
-                cur.execute(
-                    "INSERT INTO queue (video_id, title, requested_by, tokens) VALUES (%s, %s, %s, %s)",
-                    (video["video_id"], video["title"], user, 0)
-                )
-                conn.commit()
-                cur.close()
-                conn.close()
-    
-    # Обработка типа
+                add_to_queue(video["video_id"], video["title"], user, 0)
+
     if event_type == "tip":
         tip = data.get("object", {})
         user = tip.get("from_user", "unknown")
         tokens = int(tip.get("amount", 0))
         note = tip.get("message", "").strip()
-        
+
         if note.lower().startswith("!song "):
             query = note[6:].strip()
             video = search_youtube(query)
             if video:
-                conn = get_db()
-                cur = conn.cursor()
-                cur.execute(
-                    "INSERT INTO queue (video_id, title, requested_by, tokens) VALUES (%s, %s, %s, %s)",
-                    (video["video_id"], video["title"], user, tokens)
-                )
-                conn.commit()
-                cur.close()
-                conn.close()
-    
+                add_to_queue(video["video_id"], video["title"], user, tokens)
+
     return {"status": "ok"}
-    return {"success": True}
