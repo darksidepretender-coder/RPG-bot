@@ -28,6 +28,11 @@ MAX_DURATION = 600  # максимум 10 минут в секундах
 def get_db():
     return psycopg2.connect(DATABASE_URL)
 
+@app.get("/test-youtube")
+def test_youtube():
+    result = get_video_info("dQw4w9WgXcQ")
+    return {"result": result}
+
 
 def init_db():
     conn = get_db()
