@@ -1,7 +1,7 @@
 import os
 import requests
 import psycopg2
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -118,4 +118,53 @@ def clear_queue():
     conn.commit()
     cur.close()
     conn.close()
+    @app.post("/webhook")
+async def webhook(request: Request):
+    data = await request.json()
+    
+    # Chaturbate присылает тип события
+    event_type = data.get("type")
+    
+    # Обработка сообщения в чате
+    if event_type == "chatMessage":
+        message = data.get("object", {})
+        text = message.get("message", "").strip()
+        user = message.get("user", {}).get("username", "unknown")
+        
+        if text.lower().startswith("!song "):
+            query = text[6:].strip()
+            video = search_youtube(query)
+            if video:
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO queue (video_id, title, requested_by, tokens) VALUES (%s, %s, %s, %s)",
+                    (video["video_id"], video["title"], user, 0)
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+    
+    # Обработка типа
+    if event_type == "tip":
+        tip = data.get("object", {})
+        user = tip.get("from_user", "unknown")
+        tokens = int(tip.get("amount", 0))
+        note = tip.get("message", "").strip()
+        
+        if note.lower().startswith("!song "):
+            query = note[6:].strip()
+            video = search_youtube(query)
+            if video:
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO queue (video_id, title, requested_by, tokens) VALUES (%s, %s, %s, %s)",
+                    (video["video_id"], video["title"], user, tokens)
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+    
+    return {"status": "ok"}
     return {"success": True}
