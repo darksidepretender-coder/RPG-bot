@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Music Player Overlay</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:transparent; font-family: 'Arial', sans-serif; overflow:hidden; }
+
+  #player-wrap {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    background: linear-gradient(135deg, rgba(10,10,20,0.92), rgba(20,10,40,0.92));
+    border: 1px solid rgba(180,80,255,0.4);
+    border-radius: 16px;
+    padding: 14px 18px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 30px rgba(160,50,255,0.25);
+    color: #fff;
+  }
+
+  .player-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #b050ff;
+    margin-bottom: 8px;
+  }
+
+  .now-playing {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .music-icon {
+    font-size: 24px;
+    animation: spin 3s linear infinite;
+    animation-play-state: paused;
+  }
+
+  .music-icon.playing {
+    animation-play-state: running;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .track-info { flex: 1; min-width: 0; }
+
+  .track-title {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+  }
+
+  .track-user {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .queue-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 6px;
+  }
+
+  .queue-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 11px;
+  }
+
+  .queue-item:last-child { border-bottom: none; }
+
+  .queue-title {
+    color: rgba(255,255,255,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .queue-tokens {
+    color: #b050ff;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  #youtube-player { display: none; }
+</style>
+</head>
+<body>
+
+<div id="player-wrap">
+  <div class="player-label">🎵 Now Playing</div>
+  <div class="now-playing">
+    <div class="music-icon" id="musicIcon">💿</div>
+    <div class="track-info">
+      <div class="track-title" id="trackTitle">Waiting for requests...</div>
+      <div class="track-user" id="trackUser"></div>
+    </div>
+  </div>
+  <div class="queue-label">Up Next</div>
+  <div id="queueList"></div>
+</div>
+
+<div id="youtube-player"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+const SERVER = "https://music-bot-production-a9fa.up.railway.app";
+let player = null;
+let currentSongId = null;
+let isPlaying = false;
+
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('youtube-player', {
+    height: '1',
+    width: '1',
+    playerVars: { autoplay: 1, controls: 0 },
+    events: {
+      onStateChange: function(e) {
+        if (e.data === YT.PlayerState.ENDED) {
+          markPlayed();
+        }
+      }
+    }
+  });
+}
+
+async function fetchQueue() {
+  try {
+    const res = await fetch(SERVER + "/queue");
+    const queue = await res.json();
+
+    if (queue.length === 0) {
+      document.getElementById('trackTitle').textContent = 'Waiting for requests...';
+      document.getElementById('trackUser').textContent = '';
+      document.getElementById('queueList').innerHTML = '';
+      document.getElementById('musicIcon').classList.remove('playing');
+      isPlaying = false;
+      return;
+    }
+
+    if (!isPlaying && player && queue[0]) {
+      playSong(queue[0]);
+    }
+
+    const remaining = queue.slice(1);
+    const queueList = document.getElementById('queueList');
+    queueList.innerHTML = remaining.slice(0, 4).map(s =>
+      '<div class="queue-item">' +
+      '<span class="queue-title">' + s.title + '</span>' +
+      '<span class="queue-tokens">🪙 ' + s.tokens + '</span>' +
+      '</div>'
+    ).join('');
+
+  } catch(e) {
+    console.error('Error fetching queue:', e);
+  }
+}
+
+function playSong(song) {
+  if (!player) return;
+  currentSongId = song.id;
+  isPlaying = true;
+  player.loadVideoById(song.video_id);
+  document.getElementById('trackTitle').textContent = song.title;
+  document.getElementById('trackUser').textContent = '🎤 requested by ' + song.requested_by;
+  document.getElementById('musicIcon').classList.add('playing');
+}
+
+async function markPlayed() {
+  if (!currentSongId) return;
+  await fetch(SERVER + '/played/' + currentSongId, { method: 'POST' });
+  currentSongId = null;
+  isPlaying = false;
+  document.getElementById('musicIcon').classList.remove('playing');
+  fetchQueue();
+}
+
+setInterval(fetchQueue, 5000);
+fetchQueue();
+</script>
+</body>
+</html>
