@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RPG Overlay</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;700&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:transparent; font-family:'Rajdhani',sans-serif; color:#fff; overflow:hidden; }
+
+  /* ── LEADERBOARD ── */
+  #leaderboard {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 220px;
+    background: linear-gradient(135deg, rgba(10,10,20,0.92), rgba(10,20,30,0.92));
+    border: 1px solid rgba(0,200,255,0.3);
+    border-radius: 14px;
+    padding: 14px 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 25px rgba(0,180,255,0.15);
+  }
+
+  .lb-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #00c8ff;
+    margin-bottom: 10px;
+  }
+
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .lb-row:last-child { border-bottom: none; }
+
+  .lb-rank {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 900;
+    width: 16px;
+  }
+
+  .rank-1 { color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.8); }
+  .rank-2 { color: #c0c0c0; }
+  .rank-3 { color: #cd7f32; }
+  .rank-other { color: rgba(255,255,255,0.4); }
+
+  .lb-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7b2fff, #00c8ff);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-name { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-title { font-size: 10px; color: rgba(255,255,255,0.5); }
+  .lb-tokens { font-size: 10px; color: #00c8ff; flex-shrink: 0; }
+
+  /* ── LEVEL UP ALERT ── */
+  #level-alert {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: linear-gradient(135deg, rgba(15,5,30,0.97), rgba(30,5,50,0.97));
+    border: 2px solid rgba(220,80,255,0.7);
+    border-radius: 20px;
+    padding: 24px 40px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 0 60px rgba(200,50,255,0.5);
+    display: none;
+  }
+
+  #level-alert.show {
+    display: block;
+    animation: alertPop 3s ease forwards;
+  }
+
+  .alert-emoji { font-size: 48px; margin-bottom: 8px; }
+  .alert-user { font-family: 'Orbitron', monospace; font-size: 20px; font-weight: 900; color: #e040fb; margin-bottom: 4px; }
+  .alert-text { font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
+  .alert-title { font-family: 'Orbitron', monospace; font-size: 28px; font-weight: 900; color: #fff; text-shadow: 0 0 30px rgba(220,80,255,1); }
+
+  /* ── ACHIEVEMENT ALERT ── */
+  #achievement-alert {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: linear-gradient(135deg, rgba(0,10,30,0.95), rgba(0,20,40,0.95));
+    border: 1px solid rgba(0,200,255,0.5);
+    border-radius: 12px;
+    padding: 12px 20px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 0 30px rgba(0,180,255,0.3);
+    animation: slideIn 0.4s ease;
+  }
+
+  #achievement-alert.show { display: flex; }
+
+  .ach-icon { font-size: 28px; }
+  .ach-user { font-size: 13px; font-weight: 700; color: #00c8ff; }
+  .ach-text { font-size: 11px; color: rgba(255,255,255,0.6); }
+  .ach-name { font-size: 14px; font-weight: 700; color: #fff; }
+
+  @keyframes alertPop {
+    0%   { transform: translate(-50%,-50%) scale(0); opacity: 0; }
+    15%  { transform: translate(-50%,-50%) scale(1.05); opacity: 1; }
+    20%  { transform: translate(-50%,-50%) scale(1); }
+    70%  { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%,-50%) scale(0.9); opacity: 0; }
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Leaderboard -->
+<div id="leaderboard">
+  <div class="lb-label">⚔️ Top Warriors</div>
+  <div id="lbList"></div>
+</div>
+
+<!-- Level Up Alert -->
+<div id="level-alert">
+  <div class="alert-emoji" id="alertEmoji">👑</div>
+  <div class="alert-user" id="alertUser">username</div>
+  <div class="alert-text">leveled up to</div>
+  <div class="alert-title" id="alertTitle">King</div>
+</div>
+
+<!-- Achievement Alert -->
+<div id="achievement-alert">
+  <div class="ach-icon">🏅</div>
+  <div>
+    <div class="ach-user" id="achUser">username</div>
+    <div class="ach-text">earned achievement</div>
+    <div class="ach-name" id="achName">First Tip</div>
+  </div>
+</div>
+
+<script>
+const SERVER = "https://music-bot-production-a9fa.up.railway.app";
+let alertQueue = [];
+let alertBusy = false;
+let achQueue = [];
+let achBusy = false;
+
+// ── Leaderboard ──
+async function fetchLeaderboard() {
+  try {
+    const res = await fetch(SERVER + "/leaderboard");
+    const data = await res.json();
+
+    const rankClass = ['rank-1','rank-2','rank-3','rank-other','rank-other','rank-other','rank-other','rank-other','rank-other','rank-other'];
+    const labels = ['1','2','3','4','5','6','7','8','9','10'];
+
+    document.getElementById('lbList').innerHTML = data.slice(0, 5).map((p, i) =>
+      '<div class="lb-row">' +
+      '<div class="lb-rank ' + rankClass[i] + '">' + labels[i] + '</div>' +
+      '<div class="lb-avatar">' + p.username[0].toUpperCase() + '</div>' +
+      '<div class="lb-info">' +
+      '<div class="lb-name">' + p.username + '</div>' +
+      '<div class="lb-title">' + p.emoji + ' ' + p.title + '</div>' +
+      '</div>' +
+      '<div class="lb-tokens">🪙' + p.tokens + '</div>' +
+      '</div>'
+    ).join('');
+  } catch(e) {
+    console.error('Error fetching leaderboard:', e);
+  }
+}
+
+// ── Level Up Alert ──
+function showLevelUp(user, emoji, title) {
+  alertQueue.push({ user, emoji, title });
+  if (!alertBusy) processAlertQueue();
+}
+
+function processAlertQueue() {
+  if (alertQueue.length === 0) { alertBusy = false; return; }
+  alertBusy = true;
+  const { user, emoji, title } = alertQueue.shift();
+  const el = document.getElementById('level-alert');
+  document.getElementById('alertEmoji').textContent = emoji;
+  document.getElementById('alertUser').textContent = user;
+  document.getElementById('alertTitle').textContent = title;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(processAlertQueue, 400);
+  }, 3000);
+}
+
+// ── Achievement Alert ──
+function showAchievement(user, achievement) {
+  achQueue.push({ user, achievement });
+  if (!achBusy) processAchQueue();
+}
+
+function processAchQueue() {
+  if (achQueue.length === 0) { achBusy = false; return; }
+  achBusy = true;
+  const { user, achievement } = achQueue.shift();
+  const el = document.getElementById('achievement-alert');
+  document.getElementById('achUser').textContent = user;
+  document.getElementById('achName').textContent = achievement;
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(processAchQueue, 400);
+  }, 3000);
+}
+
+// ── Poll for events ──
+let lastCheck = Date.now();
+
+async function pollEvents() {
+  try {
+    const res = await fetch(SERVER + "/events?since=" + lastCheck);
+    const events = await res.json();
+    lastCheck = Date.now();
+
+    events.forEach(function(e) {
+      if (e.type === "levelup") {
+        showLevelUp(e.username, e.emoji, e.title);
+      }
+      if (e.type === "achievement") {
+        showAchievement(e.username, e.achievement);
+      }
+    });
+  } catch(e) {}
+}
+
+setInterval(fetchLeaderboard, 10000);
+setInterval(pollEvents, 3000);
+fetchLeaderboard();
+</script>
+</body>
+</html>
