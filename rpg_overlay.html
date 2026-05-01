@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Token Legends Overlay</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;700&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:transparent; font-family:'Rajdhani',sans-serif; color:#fff; overflow:hidden; }
+
+  /* ── LEADERBOARD ── */
+  #leaderboard {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 230px;
+    background: linear-gradient(135deg, rgba(10,10,20,0.92), rgba(10,20,30,0.92));
+    border: 1px solid rgba(0,200,255,0.3);
+    border-radius: 14px;
+    padding: 14px 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 25px rgba(0,180,255,0.15);
+  }
+
+  .lb-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #00c8ff;
+    margin-bottom: 10px;
+  }
+
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    animation: fadeIn 0.4s ease both;
+  }
+
+  .lb-row:last-child { border-bottom: none; }
+
+  .lb-rank {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 900;
+    width: 16px;
+    text-align: center;
+  }
+
+  .rank-1 { color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.8); }
+  .rank-2 { color: #c0c0c0; text-shadow: 0 0 6px rgba(192,192,192,0.6); }
+  .rank-3 { color: #cd7f32; text-shadow: 0 0 6px rgba(205,127,50,0.6); }
+  .rank-other { color: rgba(255,255,255,0.4); }
+
+  .lb-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7b2fff, #00c8ff);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.15);
+  }
+
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-name { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-title { font-size: 10px; color: rgba(255,255,255,0.5); }
+  .lb-tokens { font-size: 10px; color: #00c8ff; flex-shrink: 0; font-weight: 700; }
+
+  /* ── LEVEL UP ALERT ── */
+  #level-alert {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: linear-gradient(135deg, rgba(15,5,30,0.97), rgba(30,5,50,0.97));
+    border: 2px solid rgba(220,80,255,0.7);
+    border-radius: 20px;
+    padding: 28px 44px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 0 80px rgba(200,50,255,0.6);
+    display: none;
+  }
+
+  #level-alert.show {
+    display: block;
+    animation: alertPop 3.5s ease forwards;
+  }
+
+  .alert-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #b050ff;
+    margin-bottom: 8px;
+  }
+
+  .alert-user {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    color: #e040fb;
+    text-shadow: 0 0 20px rgba(220,80,255,0.8);
+    margin-bottom: 4px;
+  }
+
+  .alert-text { font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 8px; }
+
+  .alert-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 32px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 30px rgba(220,80,255,1);
+  }
+
+  /* ── ACHIEVEMENT ALERT ── */
+  #achievement-alert {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: linear-gradient(135deg, rgba(0,10,30,0.95), rgba(0,20,50,0.95));
+    border: 1px solid rgba(0,200,255,0.5);
+    border-radius: 14px;
+    padding: 14px 20px;
+    display: none;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 0 30px rgba(0,180,255,0.3);
+    min-width: 280px;
+  }
+
+  #achievement-alert.show {
+    display: flex;
+    animation: slideIn 0.4s ease;
+  }
+
+  .ach-icon { font-size: 32px; }
+  .ach-label { font-size: 9px; letter-spacing: 2px; color: #00c8ff; text-transform: uppercase; margin-bottom: 2px; }
+  .ach-user { font-size: 14px; font-weight: 700; color: #fff; }
+  .ach-name { font-size: 12px; color: rgba(255,255,255,0.6); }
+
+  /* ── PARTICLES ── */
+  .particle {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: floatUp linear forwards;
+  }
+
+  @keyframes alertPop {
+    0%   { transform: translate(-50%,-50%) scale(0); opacity: 0; }
+    12%  { transform: translate(-50%,-50%) scale(1.08); opacity: 1; }
+    18%  { transform: translate(-50%,-50%) scale(0.97); }
+    25%  { transform: translate(-50%,-50%) scale(1); }
+    70%  { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%,-50%) scale(0.9); opacity: 0; }
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(-30px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes floatUp {
+    0%   { transform: translateY(0) scale(1); opacity: 0.9; }
+    100% { transform: translateY(-300px) scale(0.2); opacity: 0; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 25px rgba(0,180,255,0.15); }
+    50%       { box-shadow: 0 0 40px rgba(0,180,255,0.35); }
+  }
+
+  #leaderboard { animation: pulse 3s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div id="leaderboard">
+  <div class="lb-label">Top Warriors</div>
+  <div id="lbList"></div>
+</div>
+
+<div id="level-alert">
+  <div class="alert-label">LEVEL UP</div>
+  <div class="alert-user" id="alertUser">username</div>
+  <div class="alert-text">has become a</div>
+  <div class="alert-title" id="alertTitle">King</div>
+</div>
+
+<div id="achievement-alert">
+  <div class="ach-icon">🏅</div>
+  <div>
+    <div class="ach-label">Achievement Unlocked</div>
+    <div class="ach-user" id="achUser">username</div>
+    <div class="ach-name" id="achName">First Tip</div>
+  </div>
+</div>
+
+<script>
+var SERVER = "https://music-bot-production-a9fa.up.railway.app";
+var alertQueue = [];
+var alertBusy = false;
+var achQueue = [];
+var achBusy = false;
+var lastCheck = Date.now();
+var prevLeaderboard = [];
+
+var RANK_CLASSES = ['rank-1','rank-2','rank-3','rank-other','rank-other'];
+var RANK_LABELS = ['1','2','3','4','5'];
+var AVATAR_COLORS = [
+  'linear-gradient(135deg,#ffd700,#ff9800)',
+  'linear-gradient(135deg,#c0c0c0,#607d8b)',
+  'linear-gradient(135deg,#cd7f32,#ff5722)',
+  'linear-gradient(135deg,#7b2fff,#00c8ff)',
+  'linear-gradient(135deg,#e040fb,#7b2fff)'
+];
+
+// ── Leaderboard ──
+function fetchLeaderboard() {
+  fetch(SERVER + "/leaderboard")
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = document.getElementById('lbList');
+      list.innerHTML = '';
+      data.slice(0, 5).forEach(function(p, i) {
+        var row = document.createElement('div');
+        row.className = 'lb-row';
+        row.style.animationDelay = (i * 0.08) + 's';
+        row.innerHTML =
+          '<div class="lb-rank ' + RANK_CLASSES[i] + '">' + RANK_LABELS[i] + '</div>' +
+          '<div class="lb-avatar" style="background:' + AVATAR_COLORS[i] + '">' + p.username[0].toUpperCase() + '</div>' +
+          '<div class="lb-info">' +
+            '<div class="lb-name">' + p.username + '</div>' +
+            '<div class="lb-title">' + p.title + '</div>' +
+          '</div>' +
+          '<div class="lb-tokens">🪙 ' + (p.tokens || 0) + '</div>';
+        list.appendChild(row);
+      });
+    })
+    .catch(function(e) { console.error('Leaderboard error:', e); });
+}
+
+// ── Poll Events ──
+function pollEvents() {
+  fetch(SERVER + "/events?since=" + lastCheck)
+    .then(function(r) { return r.json(); })
+    .then(function(events) {
+      lastCheck = Date.now();
+      events.forEach(function(e) {
+        if (e.type === "achievement") {
+          showAchievement(e.username, e.achievement);
+        }
+      });
+    })
+    .catch(function(e) {});
+}
+
+// ── Level Up Alert ──
+function showLevelUp(user, title) {
+  alertQueue.push({ user: user, title: title });
+  if (!alertBusy) { processAlertQueue(); }
+}
+
+function processAlertQueue() {
+  if (alertQueue.length === 0) { alertBusy = false; return; }
+  alertBusy = true;
+  var item = alertQueue.shift();
+  var el = document.getElementById('level-alert');
+  document.getElementById('alertUser').textContent = item.user;
+  document.getElementById('alertTitle').textContent = item.title;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  spawnParticles();
+  setTimeout(function() {
+    el.classList.remove('show');
+    setTimeout(processAlertQueue, 500);
+  }, 3500);
+}
+
+// ── Achievement Alert ──
+function showAchievement(user, achievement) {
+  achQueue.push({ user: user, achievement: achievement });
+  if (!achBusy) { processAchQueue(); }
+}
+
+function processAchQueue() {
+  if (achQueue.length === 0) { achBusy = false; return; }
+  achBusy = true;
+  var item = achQueue.shift();
+  var el = document.getElementById('achievement-alert');
+  document.getElementById('achUser').textContent = item.user;
+  document.getElementById('achName').textContent = item.achievement;
+  el.classList.add('show');
+  setTimeout(function() {
+    el.classList.remove('show');
+    setTimeout(processAchQueue, 500);
+  }, 3000);
+}
+
+// ── Particles ──
+function spawnParticles() {
+  var colors = ['#e040fb','#7b2fff','#00c8ff','#ffd700','#ff6ef7','#fff'];
+  for (var i = 0; i < 20; i++) {
+    var p = document.createElement('div');
+    p.className = 'particle';
+    var size = 4 + Math.random() * 8;
+    p.style.cssText =
+      'width:' + size + 'px;' +
+      'height:' + size + 'px;' +
+      'background:' + colors[Math.floor(Math.random() * colors.length)] + ';' +
+      'left:' + (30 + Math.random() * 40) + '%;' +
+      'top:' + (30 + Math.random() * 40) + '%;' +
+      'animation-duration:' + (1.5 + Math.random() * 1.5) + 's;' +
+      'animation-delay:' + (Math.random() * 0.5) + 's;' +
+      'box-shadow:0 0 ' + size + 'px currentColor;';
+    document.body.appendChild(p);
+    setTimeout(function() { if (p.parentNode) { p.parentNode.removeChild(p); } }, 3000);
+  }
+}
+
+setInterval(fetchLeaderboard, 10000);
+setInterval(pollEvents, 3000);
+fetchLeaderboard();
+</script>
+</body>
+</html>
