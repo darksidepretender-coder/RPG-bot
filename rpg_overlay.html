@@ -182,7 +182,7 @@ async function fetchLeaderboard() {
       '<div class="lb-name">' + p.username + '</div>' +
       '<div class="lb-title">' + p.emoji + ' ' + p.title + '</div>' +
       '</div>' +
-      '<div class="lb-tokens">🪙' + p.tokens + '</div>' +
+      '<div class="lb-tokens">🪙 ' + (p.tokens || 0) + '</div>' +
       '</div>'
     ).join('');
   } catch(e) {
